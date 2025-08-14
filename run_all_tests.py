@@ -74,6 +74,11 @@ def main():
             "name": "Regex Engine",
             "path": repo_root / "regex" / "starter" / "regex_engine.py",
             "description": "Regular expression engine with NFA, quantifiers, and character classes"
+        },
+        {
+            "name": "Template Engine",
+            "path": repo_root / "template-engine" / "starter" / "template_engine.py",
+            "description": "Text templating system with variables, filters, and control structures"
         }
     ]
     
