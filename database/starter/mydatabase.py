@@ -5,20 +5,28 @@ MyDatabase - A relational database implementation from scratch
 This database demonstrates core RDBMS concepts:
 - Page-based storage engine with disk persistence
 - B-tree indexes for efficient data retrieval
-- SQL query parsing and execution
+- SQL query parsing and execution with JOIN support
 - Record serialization and management
 - Transaction basics and table management
+- Production-level error handling and logging
 
 Built using only Python standard library to show fundamental database concepts.
 """
 
 import os
+import sys
 import struct
 import re
 import tempfile
 from typing import List, Dict, Any, Optional, Tuple, Union
 from enum import Enum
 from dataclasses import dataclass
+
+# Add common utilities path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'common'))
+from exceptions import DatabaseError, DatabaseQueryError, DatabaseStorageError, DatabaseIntegrityError
+from logger import get_logger
+from validation import validator
 
 
 class PageType(Enum):
@@ -623,29 +631,102 @@ class Table:
 
 
 class Database:
-    """Main database management system"""
+    """
+    Main database management system with production-level features.
+    
+    Provides:
+    - Table management with schema validation
+    - SQL parsing and execution with JOIN support  
+    - Error handling and logging
+    - Input validation and security
+    - Transaction management
+    """
     
     def __init__(self, db_file: str):
-        self.storage_engine = StorageEngine(db_file)
-        self.tables: Dict[str, Table] = {}
-        self.transaction_active = False
+        """Initialize database with comprehensive error handling."""
+        try:
+            self.logger = get_logger(f"database.{os.path.basename(db_file)}")
+            self.logger.info("Initializing database", {"db_file": db_file})
+            
+            # Validate database file path
+            db_file = validator.validate_string(db_file, "db_file", min_length=1, max_length=4096)
+            db_file = validator.validate_path(db_file, "db_file", allow_absolute=True)
+            
+            self.storage_engine = StorageEngine(db_file)
+            self.tables: Dict[str, Table] = {}
+            self.transaction_active = False
+            self._load_tables()
+            
+            self.logger.info("Database initialized successfully")
+            
+        except Exception as e:
+            self.logger.error("Failed to initialize database", {"error": str(e)}, e)
+            raise DatabaseStorageError(f"Failed to initialize database: {e}")
+    
+    def close(self):
+        """Close database with proper cleanup."""
+        try:
+            self.logger.info("Closing database")
+            if hasattr(self, 'storage_engine'):
+                self.storage_engine.close()
+            self.logger.info("Database closed successfully")
+        except Exception as e:
+            self.logger.error("Error closing database", {"error": str(e)}, e)
+            raise DatabaseStorageError(f"Failed to close database: {e}")
+    
+    def _load_tables(self):
+        """Load existing tables from storage (simplified for demo)."""
+        # In a real implementation, this would read table metadata from storage
+        pass
     
     def create_table(self, name: str, columns: List[Column]) -> bool:
-        """Create a new table"""
-        if name.lower() in [t.lower() for t in self.tables.keys()]:
-            raise ValueError(f"Table '{name}' already exists")
-        
-        table = Table(name, columns, self.storage_engine)
-        self.tables[name] = table
-        return True
+        """Create a new table with validation."""
+        try:
+            # Validate input
+            name = validator.validate_string(name, "table_name", min_length=1, max_length=255)
+            name = validator.validate_filename(name, "table_name")
+            
+            if name.lower() in [t.lower() for t in self.tables.keys()]:
+                raise DatabaseIntegrityError(f"Table '{name}' already exists")
+            
+            if not columns:
+                raise ValidationError("Table must have at least one column", field="columns")
+            
+            # Validate columns
+            for i, column in enumerate(columns):
+                if not isinstance(column, Column):
+                    raise ValidationError(f"Column {i} must be a Column instance")
+            
+            with self.logger.operation_context("create_table", table_name=name):
+                table = Table(name, columns, self.storage_engine)
+                self.tables[name] = table
+                self.logger.info("Table created successfully", {"table_name": name, "columns": len(columns)})
+                return True
+                
+        except Exception as e:
+            self.logger.error("Failed to create table", {"table_name": name, "error": str(e)}, e)
+            if isinstance(e, (DatabaseError, ValidationError)):
+                raise
+            raise DatabaseError(f"Failed to create table '{name}': {e}")
     
     def drop_table(self, name: str) -> bool:
-        """Drop a table"""
-        if name not in self.tables:
-            raise ValueError(f"Table '{name}' does not exist")
-        
-        del self.tables[name]
-        return True
+        """Drop a table with validation."""
+        try:
+            name = validator.validate_string(name, "table_name", min_length=1)
+            
+            if name not in self.tables:
+                raise DatabaseError(f"Table '{name}' does not exist")
+            
+            with self.logger.operation_context("drop_table", table_name=name):
+                del self.tables[name]
+                self.logger.info("Table dropped successfully", {"table_name": name})
+                return True
+                
+        except Exception as e:
+            self.logger.error("Failed to drop table", {"table_name": name, "error": str(e)}, e)
+            if isinstance(e, DatabaseError):
+                raise
+            raise DatabaseError(f"Failed to drop table '{name}': {e}")
     
     def get_table(self, name: str) -> Optional[Table]:
         """Get table by name"""
@@ -656,29 +737,45 @@ class Database:
         return list(self.tables.keys())
     
     def execute_sql(self, sql: str) -> Any:
-        """Execute SQL statement"""
-        sql = sql.strip().rstrip(';')
-        
-        if not sql:
-            return None
-        
-        # Simple SQL dispatcher
-        sql_upper = sql.upper()
-        
-        if sql_upper.startswith('CREATE TABLE'):
-            return self._execute_create_table(sql)
-        elif sql_upper.startswith('DROP TABLE'):
-            return self._execute_drop_table(sql)
-        elif sql_upper.startswith('INSERT INTO'):
-            return self._execute_insert(sql)
-        elif sql_upper.startswith('SELECT'):
-            return self._execute_select(sql)
-        elif sql_upper.startswith('SHOW TABLES'):
-            return self._execute_show_tables()
-        elif sql_upper.startswith('DESCRIBE') or sql_upper.startswith('DESC'):
-            return self._execute_describe(sql)
-        else:
-            raise ValueError(f"Unsupported SQL statement: {sql}")
+        """Execute SQL statement with comprehensive validation and JOIN support."""
+        try:
+            # Validate and sanitize input
+            if not sql or not isinstance(sql, str):
+                raise DatabaseQueryError("SQL query cannot be empty")
+            
+            sql = validator.validate_string(sql, "sql_query", min_length=1, max_length=10000)
+            sql = validator.check_sql_injection(sql, "sql_query")
+            sql = sql.strip().rstrip(';')
+            
+            self.logger.debug("Executing SQL", {"query": sql})
+            
+            with self.logger.operation_context("execute_sql", query_type=sql.split()[0].upper()):
+                # Simple SQL dispatcher with JOIN support
+                sql_upper = sql.upper()
+                
+                if sql_upper.startswith('CREATE TABLE'):
+                    result = self._execute_create_table(sql)
+                elif sql_upper.startswith('DROP TABLE'):
+                    result = self._execute_drop_table(sql)
+                elif sql_upper.startswith('INSERT INTO'):
+                    result = self._execute_insert(sql)
+                elif sql_upper.startswith('SELECT'):
+                    result = self._execute_select(sql)
+                elif sql_upper.startswith('SHOW TABLES'):
+                    result = self._execute_show_tables()
+                elif sql_upper.startswith('DESCRIBE') or sql_upper.startswith('DESC'):
+                    result = self._execute_describe(sql)
+                else:
+                    raise DatabaseQueryError(f"Unsupported SQL statement: {sql.split()[0]}")
+                
+                self.logger.debug("SQL executed successfully", {"query_type": sql.split()[0].upper()})
+                return result
+                
+        except Exception as e:
+            self.logger.error("SQL execution failed", {"query": sql, "error": str(e)}, e)
+            if isinstance(e, DatabaseError):
+                raise
+            raise DatabaseQueryError(f"Failed to execute SQL: {e}")
     
     def _execute_create_table(self, sql: str) -> bool:
         """Execute CREATE TABLE statement"""
@@ -755,32 +852,142 @@ class Database:
         return table.insert(values)
     
     def _execute_select(self, sql: str) -> List[Record]:
-        """Execute SELECT statement"""
-        # Basic patterns
-        patterns = [
-            # SELECT * FROM table WHERE conditions
-            r'SELECT\s+\*\s+FROM\s+(\w+)\s+WHERE\s+(.+)',
-            # SELECT * FROM table
-            r'SELECT\s+\*\s+FROM\s+(\w+)',
-        ]
+        """Execute SELECT statement with JOIN support."""
+        try:
+            # Enhanced patterns to support JOINs
+            patterns = [
+                # SELECT * FROM table1 INNER JOIN table2 ON condition
+                r'SELECT\s+\*\s+FROM\s+(\w+)\s+(?:INNER\s+)?JOIN\s+(\w+)\s+ON\s+(.+)',
+                # SELECT * FROM table1, table2 WHERE condition (implicit join)
+                r'SELECT\s+\*\s+FROM\s+(\w+)\s*,\s*(\w+)\s+WHERE\s+(.+)',
+                # SELECT * FROM table WHERE conditions
+                r'SELECT\s+\*\s+FROM\s+(\w+)\s+WHERE\s+(.+)',
+                # SELECT * FROM table
+                r'SELECT\s+\*\s+FROM\s+(\w+)',
+            ]
+            
+            for i, pattern in enumerate(patterns):
+                match = re.match(pattern, sql, re.IGNORECASE | re.DOTALL)
+                if match:
+                    if i < 2:  # JOIN queries
+                        return self._execute_join(match.group(1), match.group(2), match.group(3))
+                    else:  # Single table queries
+                        table_name = match.group(1)
+                        where_clause = match.group(2) if len(match.groups()) > 1 else None
+                        return self._execute_single_table_select(table_name, where_clause)
+            
+            raise DatabaseQueryError("Invalid SELECT syntax")
+            
+        except Exception as e:
+            if isinstance(e, DatabaseError):
+                raise
+            raise DatabaseQueryError(f"Failed to execute SELECT: {e}")
+    
+    def _execute_join(self, table1_name: str, table2_name: str, join_condition: str) -> List[Record]:
+        """Execute INNER JOIN between two tables."""
+        try:
+            # Validate table names
+            table1_name = validator.validate_string(table1_name, "table1_name", min_length=1)
+            table2_name = validator.validate_string(table2_name, "table2_name", min_length=1)
+            
+            # Get tables
+            table1 = self.get_table(table1_name)
+            table2 = self.get_table(table2_name)
+            
+            if not table1:
+                raise DatabaseError(f"Table '{table1_name}' does not exist")
+            if not table2:
+                raise DatabaseError(f"Table '{table2_name}' does not exist")
+            
+            # Parse join condition (simplified: table1.column = table2.column)
+            join_conditions = self._parse_join_condition(join_condition, table1_name, table2_name)
+            
+            # Get all records from both tables
+            table1_records = table1.select_all()
+            table2_records = table2.select_all()
+            
+            # Perform nested loop join
+            result = []
+            for record1 in table1_records:
+                for record2 in table2_records:
+                    if self._matches_join_condition(record1, record2, join_conditions, table1, table2):
+                        # Combine records
+                        combined_values = record1.values + record2.values
+                        result.append(Record(combined_values))
+            
+            self.logger.info("JOIN executed successfully", {
+                "table1": table1_name,
+                "table2": table2_name,
+                "result_count": len(result)
+            })
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error("JOIN execution failed", {
+                "table1": table1_name,
+                "table2": table2_name,
+                "error": str(e)
+            }, e)
+            if isinstance(e, DatabaseError):
+                raise
+            raise DatabaseQueryError(f"JOIN execution failed: {e}")
+    
+    def _execute_single_table_select(self, table_name: str, where_clause: Optional[str]) -> List[Record]:
+        """Execute SELECT on a single table."""
+        table_name = validator.validate_string(table_name, "table_name", min_length=1)
         
-        for pattern in patterns:
-            match = re.match(pattern, sql, re.IGNORECASE | re.DOTALL)
-            if match:
-                table_name = match.group(1)
-                where_clause = match.group(2) if len(match.groups()) > 1 else None
-                
-                table = self.get_table(table_name)
-                if not table:
-                    raise ValueError(f"Table '{table_name}' does not exist")
-                
-                if where_clause:
-                    conditions = self._parse_where_clause(where_clause)
-                    return table.select_where(conditions)
-                else:
-                    return table.select_all()
+        table = self.get_table(table_name)
+        if not table:
+            raise DatabaseError(f"Table '{table_name}' does not exist")
         
-        raise ValueError("Invalid SELECT syntax (only 'SELECT * FROM table [WHERE ...]' supported)")
+        if where_clause:
+            conditions = self._parse_where_clause(where_clause)
+            return table.select_where(conditions)
+        else:
+            return table.select_all()
+    
+    def _parse_join_condition(self, condition: str, table1_name: str, table2_name: str) -> Dict[str, Any]:
+        """Parse JOIN condition (simplified implementation)."""
+        # Simple pattern: table1.column = table2.column
+        pattern = r'(\w+)\.(\w+)\s*=\s*(\w+)\.(\w+)'
+        match = re.match(pattern, condition.strip(), re.IGNORECASE)
+        
+        if not match:
+            raise DatabaseQueryError(f"Unsupported JOIN condition: {condition}")
+        
+        left_table, left_column = match.group(1), match.group(2)
+        right_table, right_column = match.group(3), match.group(4)
+        
+        return {
+            'left_table': left_table,
+            'left_column': left_column,
+            'right_table': right_table,
+            'right_column': right_column
+        }
+    
+    def _matches_join_condition(self, record1: Record, record2: Record, 
+                               join_conditions: Dict[str, Any], 
+                               table1: Table, table2: Table) -> bool:
+        """Check if two records match the JOIN condition."""
+        try:
+            left_column = join_conditions['left_column']
+            right_column = join_conditions['right_column']
+            
+            # Get column indexes
+            left_index = table1.column_indexes.get(left_column)
+            right_index = table2.column_indexes.get(right_column)
+            
+            if left_index is None or right_index is None:
+                return False
+            
+            if left_index >= len(record1.values) or right_index >= len(record2.values):
+                return False
+            
+            return record1.values[left_index] == record2.values[right_index]
+            
+        except Exception:
+            return False
     
     def _execute_show_tables(self) -> List[str]:
         """Execute SHOW TABLES statement"""
@@ -1048,6 +1255,32 @@ def run_tests():
         
         db.close()
     print("   ✓ Complete database works")
+    
+    # Test 5: JOIN operations (NEW!)
+    print("5. Testing JOIN operations...")
+    with tempfile.NamedTemporaryFile(suffix='.db') as tmp:
+        db = Database(tmp.name)
+        
+        # Create tables
+        db.execute_sql("CREATE TABLE users (id INTEGER, name TEXT)")
+        db.execute_sql("CREATE TABLE orders (id INTEGER, user_id INTEGER, product TEXT)")
+        
+        # Insert data
+        db.execute_sql("INSERT INTO users VALUES (1, 'Alice')")
+        db.execute_sql("INSERT INTO users VALUES (2, 'Bob')")
+        db.execute_sql("INSERT INTO orders VALUES (101, 1, 'Laptop')")
+        db.execute_sql("INSERT INTO orders VALUES (102, 2, 'Mouse')")
+        
+        # Test JOIN
+        join_results = db.execute_sql("SELECT * FROM users JOIN orders ON users.id = orders.user_id")
+        assert len(join_results) == 2
+        
+        # Verify JOIN results structure (users columns + orders columns)
+        first_result = join_results[0]
+        assert len(first_result.values) == 5  # 2 from users + 3 from orders
+        
+        db.close()
+    print("   ✓ JOIN operations work")
     
     print("\n" + "=" * 50)
     print("🎉 All tests passed!")
