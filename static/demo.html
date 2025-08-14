@@ -1,0 +1,48 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Static File Demo - MyHTTPServer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Static File Demo Page</h1>
+        
+        <p>This is a static HTML file served by MyHTTPServer! It demonstrates:</p>
+        
+        <ul class="feature-list">
+            <li>Static HTML content</li>
+            <li>CSS styling from external stylesheet</li>
+            <li>JavaScript functionality</li>
+            <li>Proper MIME type handling</li>
+            <li>File security (no directory traversal)</li>
+        </ul>
+        
+        <div class="demo-section">
+            <h2>Interactive Demo</h2>
+            <p>Click the main heading to change its color!</p>
+            <p>Current time: <span id="current-time"></span></p>
+            
+            <button onclick="fetchApiData()">Test API Call</button>
+            <div id="api-output"></div>
+        </div>
+        
+        <h2>Navigation</h2>
+        <ul>
+            <li><a href="/">Back to Home</a></li>
+            <li><a href="/about">About Page</a></li>
+            <li><a href="/user/demo">User Profile Demo</a></li>
+            <li><a href="/api/data">API Endpoint</a></li>
+        </ul>
+        
+        <h2>Server Information</h2>
+        <p>This page was served by <strong>MyHTTPServer</strong>, a custom HTTP server built from scratch using only Python's standard library.</p>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
+    
