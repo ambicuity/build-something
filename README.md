@@ -119,6 +119,43 @@ Each project directory contains:
 **AI Engineer**: Neural Network → Bot → Visual Recognition → Search Engine
 **Blockchain Developer**: Database → Blockchain → P2P BitTorrent → Distributed Systems
 
+## 🧪 Testing
+
+All implemented projects include comprehensive test suites to verify functionality:
+
+### Run All Tests
+```bash
+python3 run_all_tests.py
+```
+
+### Individual Component Tests
+```bash
+# Database tests
+python3 database/starter/mydatabase.py
+
+# Text Editor tests  
+python3 editor/starter/myeditor.py
+# OR
+python3 -c "import sys; sys.path.append('editor/starter'); from myeditor import run_tests; run_tests()"
+
+# Git tests
+python3 git/tests/test_mygit.py
+
+# HTTP Server tests
+python3 http-server/starter/server.py --test
+
+# Shell tests
+python3 shell/starter/myshell.py --test
+```
+
+### Test Status
+✅ **All 5 implemented components pass their tests:**
+- **Database**: Storage engine, B-tree indexing, SQL parsing (4/4 tests)
+- **Text Editor**: TextBuffer, Cursor, Syntax highlighting, Status bar (4/4 tests)  
+- **Git**: Init, add, commit, status, log, history (7/7 tests)
+- **HTTP Server**: Request parsing, routing, static files, integration (5/5 tests)
+- **Shell**: Lexer, parser, built-ins, variables, execution (5/5 tests)
+
 ## 🛠️ Prerequisites
 
 - Basic programming knowledge in your chosen language (examples provided in Python, Go, and C)
