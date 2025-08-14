@@ -11,6 +11,119 @@ Master the art of command-line programming by building useful CLI applications. 
 - Terminal output formatting and colors
 - Error handling and exit codes
 
+## 🚀 Quick Start
+
+```bash
+# Navigate to the starter directory
+cd cli-tools/starter
+
+# Run tests to verify everything works
+python3 cli_tools.py --test
+
+# List available tools
+python3 cli_tools.py --list
+
+# Use individual tools
+python3 cli_tools.py myecho "Hello World"
+python3 cli_tools.py myls -l -c
+python3 cli_tools.py wc filename.txt
+```
+
+## 🛠️ Implemented Tools
+
+Our implementation includes 6 essential command-line tools built from scratch:
+
+### 1. **myecho** - Enhanced Echo Command
+```bash
+python3 cli_tools.py myecho "Hello World"
+python3 cli_tools.py myecho -c green -b "Colored bold text"
+python3 cli_tools.py myecho -e "Line 1\\nLine 2"  # Interpret escapes
+python3 cli_tools.py myecho -n "No newline"       # No trailing newline
+```
+
+**Features:**
+- Color output (red, green, blue, yellow)
+- Bold text formatting
+- Backslash escape interpretation
+- No-newline option
+
+### 2. **myls** - Directory Listing
+```bash
+python3 cli_tools.py myls                    # Basic listing
+python3 cli_tools.py myls -l                 # Long format
+python3 cli_tools.py myls -a                 # Show hidden files
+python3 cli_tools.py myls -l -c              # Long format with colors
+python3 cli_tools.py myls -t -r              # Sort by time, reverse
+python3 cli_tools.py myls -H                 # Human readable sizes
+```
+
+**Features:**
+- Long format with permissions, size, date
+- Color coding by file type
+- Human-readable file sizes
+- Hidden file display
+- Time-based sorting
+
+### 3. **wc** - Word Counter
+```bash
+python3 cli_tools.py wc filename.txt         # Count lines, words, chars
+python3 cli_tools.py wc -l filename.txt      # Lines only
+python3 cli_tools.py wc -w filename.txt      # Words only
+python3 cli_tools.py wc -c filename.txt      # Characters only
+python3 cli_tools.py wc file1.txt file2.txt # Multiple files
+```
+
+**Features:**
+- Line, word, and character counting
+- Multiple file processing
+- Total summaries
+- Individual count options
+
+### 4. **mytail** - File Tail Display
+```bash
+python3 cli_tools.py mytail filename.txt     # Last 10 lines
+python3 cli_tools.py mytail -n 5 file.txt    # Last 5 lines
+python3 cli_tools.py mytail file1.txt file2.txt # Multiple files
+```
+
+**Features:**
+- Configurable line count
+- Multiple file support
+- Stdin support
+- File headers for multiple files
+
+### 5. **mygrep** - Pattern Search
+```bash
+python3 cli_tools.py mygrep pattern file.txt      # Basic search
+python3 cli_tools.py mygrep -i pattern file.txt   # Case insensitive
+python3 cli_tools.py mygrep -n pattern file.txt   # Show line numbers
+python3 cli_tools.py mygrep -v pattern file.txt   # Invert match
+python3 cli_tools.py mygrep -c pattern file.txt   # Count matches
+python3 cli_tools.py mygrep -r "pa.*ern" file.txt # Regex mode
+```
+
+**Features:**
+- Case-sensitive and insensitive search
+- Line number display
+- Inverted matching
+- Match counting
+- Regular expression support
+- Multiple file search
+
+### 6. **mycat** - File Display
+```bash
+python3 cli_tools.py mycat filename.txt      # Display file
+python3 cli_tools.py mycat -n filename.txt   # With line numbers
+python3 cli_tools.py mycat -b filename.txt   # Number non-blank lines
+python3 cli_tools.py mycat -s filename.txt   # Squeeze blank lines
+```
+
+**Features:**
+- File content display
+- Line numbering options
+- Blank line handling
+- Multiple file support
+
 ## 📚 Tutorials by Language
 
 ### Go

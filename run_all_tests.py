@@ -64,6 +64,21 @@ def main():
             "name": "Shell",
             "path": repo_root / "shell" / "starter" / "myshell.py", 
             "description": "Command-line shell with pipes, redirection, and built-ins"
+        },
+        {
+            "name": "CLI Tools",
+            "path": repo_root / "cli-tools" / "starter" / "cli_tools.py",
+            "description": "Collection of command-line tools (echo, ls, wc, tail, grep, cat)"
+        },
+        {
+            "name": "Regex Engine",
+            "path": repo_root / "regex" / "starter" / "regex_engine.py",
+            "description": "Regular expression engine with NFA, quantifiers, and character classes"
+        },
+        {
+            "name": "Template Engine",
+            "path": repo_root / "template-engine" / "starter" / "template_engine.py",
+            "description": "Text templating system with variables, filters, and control structures"
         }
     ]
     
