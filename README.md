@@ -14,22 +14,70 @@ This repository follows the principle of learning by building. Instead of just r
 - **[Build Your Own Git](./git/)** - Version control system with basic branching and merging
 - **[Build Your Own Shell](./shell/)** - Command-line interpreter with pipes and redirections
 - **[Build Your Own Text Editor](./editor/)** - Terminal-based text editor with syntax highlighting
+- **[Build Your Own Command-Line Tools](./cli-tools/)** - Collection of CLI application tutorials
+- **[Build Your Own Operating System](./operating-system/)** - OS kernel development from scratch
+- **[Build Your Own Docker](./docker/)** - Container runtime and virtualization system
 
 ### 🌐 Network & Web
 - **[Build Your Own HTTP Server](./http-server/)** - Web server with routing and static file serving
 - **[Build Your Own Web Framework](./web-framework/)** - Lightweight framework with templating and middleware
+- **[Build Your Own Web Browser](./web-browser/)** - Browser engine implementation
+- **[Build Your Own Network Stack](./network/)** - TCP/IP implementation from scratch
+- **[Build Your Own Load Balancer](./load-balancer/)** - HTTP load balancer with health checking
+- **[Build Your Own BitTorrent Client](./bittorrent/)** - P2P file sharing protocol
 
 ### 💾 Data & Storage
 - **[Build Your Own Database](./database/)** - Relational database with SQL parsing and B-tree indexing
 - **[Build Your Own Key-Value Store](./kv-store/)** - Redis-like in-memory data structure server
+- **[Build Your Own Search Engine](./search-engine/)** - Full-text search with indexing and ranking
 
 ### ⚡ Languages & Compilers
 - **[Build Your Own Interpreter](./interpreter/)** - Language interpreter with lexer, parser, and evaluator
 - **[Build Your Own Compiler](./compiler/)** - Simple compiler targeting assembly or bytecode
+- **[Build Your Own Programming Language](./programming-language/)** - Complete language implementation
+- **[Build Your Own Regex Engine](./regex/)** - Regular expression matching engine
+- **[Build Your Own Template Engine](./template-engine/)** - Text templating system
 
-### 🔄 Distributed Systems
-- **[Build Your Own Load Balancer](./load-balancer/)** - HTTP load balancer with health checking
+### 🔄 Distributed Systems & Blockchain
 - **[Build Your Own Message Queue](./message-queue/)** - Pub/sub messaging system
+- **[Build Your Own Blockchain](./blockchain/)** - Cryptocurrency and blockchain implementation
+
+### 🎮 Graphics & Games
+- **[Build Your Own 3D Renderer](./3d-renderer/)** - Ray tracing and rasterization tutorials
+- **[Build Your Own Game](./game/)** - Game development from scratch
+- **[Build Your Own Physics Engine](./physics/)** - 2D/3D physics simulation
+- **[Build Your Own Voxel Engine](./voxel-engine/)** - Minecraft-style world generation
+
+### 🤖 AI & Machine Learning
+- **[Build Your Own Neural Network](./neural-network/)** - Deep learning from first principles
+- **[Build Your Own Bot](./bot/)** - Chatbots, trading bots, and automation
+- **[Build Your Own Visual Recognition System](./visual-recognition/)** - Computer vision and image processing
+
+### 🔮 Advanced Systems
+- **[Build Your Own Emulator](./emulator/)** - CPU emulation and virtual machines
+- **[Build Your Own Augmented Reality](./augmented-reality/)** - AR development tutorials
+- **[Build Your Own Frontend Framework](./frontend/)** - React/Vue-like framework implementation
+
+### 📚 Additional Projects & Resources
+
+For more specialized tutorials and language-specific implementations, explore these comprehensive resources:
+
+#### Systems & Infrastructure
+- **[Build Your Own Docker](./docker/)** - Container runtime and virtualization
+- **[Build Your Own Network Stack](./network/)** - TCP/IP implementation from scratch
+- **[Build Your Own BitTorrent Client](./bittorrent/)** - P2P file sharing protocol
+
+#### Specialized Engines
+- **[Build Your Own Regex Engine](./regex/)** - Pattern matching and finite automata
+- **[Build Your Own Search Engine](./search-engine/)** - Information retrieval and indexing
+- **[Build Your Own Template Engine](./template-engine/)** - Text templating systems
+- **[Build Your Own Voxel Engine](./voxel-engine/)** - Minecraft-style world generation
+
+#### Machine Learning & Vision
+- **[Build Your Own Visual Recognition System](./visual-recognition/)** - Computer vision and image processing
+
+#### Comprehensive Tutorial Collections
+Each category contains extensive tutorials covering multiple programming languages including C, C++, Python, JavaScript, Go, Rust, Java, C#, and many more. From beginner-friendly introductions to advanced implementations, these tutorials provide complete learning paths for mastering each technology from first principles.
 
 ## 🚀 Getting Started
 
@@ -50,9 +98,26 @@ Each project directory contains:
 
 ## 🎓 Learning Path Recommendations
 
-**Beginner**: Start with Shell → Text Editor → HTTP Server
-**Intermediate**: Try Database → Interpreter → Web Framework  
-**Advanced**: Tackle Compiler → Load Balancer → Message Queue
+### 🌱 Beginner Path
+**Foundation**: Start with Shell → Text Editor → HTTP Server
+**Next Steps**: Try Command-Line Tools → Simple Game → Bot
+
+### 🚀 Intermediate Path  
+**Core Systems**: Database → Interpreter → Web Framework → Regex Engine
+**Networking**: Network Stack → BitTorrent Client → Load Balancer
+**Graphics**: 3D Renderer → Physics Engine → Voxel Engine
+
+### 🧠 Advanced Path
+**Languages**: Compiler → Programming Language → Template Engine
+**Systems**: Operating System → Emulator → Docker → Message Queue
+**AI/ML**: Neural Network → Visual Recognition → Advanced Bot
+
+### 🎯 Specialized Tracks
+**Web Developer**: HTTP Server → Web Framework → Frontend Framework → Web Browser
+**Game Developer**: Game → Physics Engine → 3D Renderer → Voxel Engine
+**Systems Engineer**: Shell → Operating System → Network Stack → Docker
+**AI Engineer**: Neural Network → Bot → Visual Recognition → Search Engine
+**Blockchain Developer**: Database → Blockchain → P2P BitTorrent → Distributed Systems
 
 ## 🛠️ Prerequisites
 
