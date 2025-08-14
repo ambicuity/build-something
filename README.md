@@ -149,13 +149,14 @@ python3 shell/starter/myshell.py --test
 ```
 
 ### Test Status
-✅ **All 6 implemented components pass their tests:**
+✅ **All 7 implemented components pass their tests:**
 - **Database**: Storage engine, B-tree indexing, SQL parsing (4/4 tests)
 - **Text Editor**: TextBuffer, Cursor, Syntax highlighting, Status bar (4/4 tests)  
 - **Git**: Init, add, commit, status, log, history (7/7 tests)
 - **HTTP Server**: Request parsing, routing, static files, integration (5/5 tests)
 - **Shell**: Lexer, parser, built-ins, variables, execution (5/5 tests)
 - **CLI Tools**: Echo, ls, wc, tail, grep, cat commands (6/6 tests)
+- **Regex Engine**: Pattern matching, quantifiers, character classes, anchors (32/32 tests)
 
 ## 🛠️ Prerequisites
 
