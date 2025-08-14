@@ -64,6 +64,11 @@ def main():
             "name": "Shell",
             "path": repo_root / "shell" / "starter" / "myshell.py", 
             "description": "Command-line shell with pipes, redirection, and built-ins"
+        },
+        {
+            "name": "CLI Tools",
+            "path": repo_root / "cli-tools" / "starter" / "cli_tools.py",
+            "description": "Collection of command-line tools (echo, ls, wc, tail, grep, cat)"
         }
     ]
     
