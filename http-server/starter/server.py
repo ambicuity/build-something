@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 """
-MyHTTPServer - A complete HTTP server implementation from scratch
+MyHTTPServer - A production-level HTTP server implementation
 
-This implementation demonstrates all core web server concepts:
+This implementation demonstrates advanced web server concepts:
 - Socket programming and TCP connections
 - HTTP protocol parsing and response generation
 - URL routing with parameter extraction
 - Static file serving with proper MIME types
 - Middleware system for cross-cutting concerns
 - Concurrent request handling with threading
+- Production-level error handling and logging
+- Security features and input validation
 """
 
 import socket
+import sys
 import threading
 import re
 import os
@@ -19,16 +22,29 @@ import mimetypes
 import json
 import hashlib
 import zlib
+import time
 from pathlib import Path
 from datetime import datetime
-from typing import Callable, Dict, List, Tuple, Any, Optional
+from typing import Callable, Dict, List, Tuple, Any, Optional, Union
 from urllib.parse import urlparse, parse_qs
+
+# Add common utilities path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'common'))
+from exceptions import HTTPError, HTTPParsingError, HTTPRoutingError, HTTPServerError
+from logger import get_logger
+from validation import validator
 
 
 class HTTPRequest:
-    """Represents an HTTP request with all parsed components"""
+    """
+    Represents an HTTP request with comprehensive validation and parsing.
     
-    def __init__(self, raw_request: str):
+    Provides production-level HTTP request parsing with security measures
+    and input validation.
+    """
+    
+    def __init__(self, raw_request: str, logger: Optional[Any] = None):
+        self.logger = logger or get_logger("http.request")
         self.method = ""
         self.path = ""
         self.query_params = {}
@@ -36,17 +52,127 @@ class HTTPRequest:
         self.headers = {}
         self.body = ""
         self.version = ""
+        self.remote_addr = ""
+        self.timestamp = datetime.now()
         
-        self.parse(raw_request)
+        try:
+            self.parse(raw_request)
+        except Exception as e:
+            self.logger.error("Failed to parse HTTP request", {"error": str(e)}, e)
+            raise HTTPParsingError(f"Invalid HTTP request: {e}")
     
     def parse(self, raw_request: str):
-        """Parse raw HTTP request string into components"""
-        if not raw_request:
-            return
-            
+        """Parse raw HTTP request string with comprehensive validation."""
+        if not raw_request or not isinstance(raw_request, str):
+            raise HTTPParsingError("Empty or invalid request")
+        
+        # Basic size validation
+        if len(raw_request) > 1024 * 1024:  # 1MB limit
+            raise HTTPParsingError("Request too large")
+        
         lines = raw_request.split('\r\n')
         if not lines:
-            return
+            raise HTTPParsingError("Invalid request format")
+        
+        # Parse request line
+        self._parse_request_line(lines[0])
+        
+        # Parse headers
+        self._parse_headers(lines[1:])
+        
+        # Validate parsed request
+        self._validate_request()
+    
+    def _parse_request_line(self, request_line: str):
+        """Parse the HTTP request line."""
+        try:
+            parts = request_line.split(' ')
+            if len(parts) != 3:
+                raise HTTPParsingError("Invalid request line format")
+            
+            self.method = validator.validate_string(parts[0], "method", min_length=1, max_length=10).upper()
+            
+            # Validate HTTP method
+            valid_methods = {'GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS', 'PATCH'}
+            if self.method not in valid_methods:
+                raise HTTPParsingError(f"Unsupported HTTP method: {self.method}")
+            
+            # Parse URL and query parameters
+            url_part = parts[1]
+            if '?' in url_part:
+                self.path, query_string = url_part.split('?', 1)
+                self.query_params = parse_qs(query_string)
+            else:
+                self.path = url_part
+            
+            # Validate and sanitize path
+            self.path = validator.validate_string(self.path, "path", min_length=1, max_length=2048)
+            # HTTP paths can start with / so we don't use validate_path here
+            
+            # Check for path traversal
+            if '..' in self.path:
+                raise HTTPParsingError("Path traversal attempt detected")
+            
+            self.version = parts[2]
+            if not self.version.startswith('HTTP/'):
+                raise HTTPParsingError("Invalid HTTP version")
+                
+        except IndexError:
+            raise HTTPParsingError("Malformed request line")
+    
+    def _parse_headers(self, header_lines: List[str]):
+        """Parse HTTP headers with validation."""
+        body_start = -1
+        
+        for i, line in enumerate(header_lines):
+            if line == '':
+                body_start = i + 1
+                break
+            
+            if ':' not in line:
+                continue
+            
+            key, value = line.split(':', 1)
+            key = key.strip().lower()
+            value = value.strip()
+            
+            # Basic header validation
+            key = validator.validate_string(key, f"header_{key}", min_length=1, max_length=256)
+            value = validator.validate_string(value, f"header_value_{key}", max_length=8192)
+            
+            # Security: check for header injection
+            if '\n' in value or '\r' in value:
+                self.logger.warning("Header injection attempt detected", {"header": key, "value": value[:100]})
+                continue
+            
+            self.headers[key] = value
+        
+        # Parse body if present
+        if body_start >= 0 and body_start < len(header_lines):
+            self.body = '\r\n'.join(header_lines[body_start:])
+    
+    def _validate_request(self):
+        """Additional request validation."""
+        # Check required headers
+        if self.method in {'POST', 'PUT', 'PATCH'} and 'content-length' not in self.headers:
+            # Allow requests without content-length for now
+            pass
+        
+        # Validate content length if present
+        if 'content-length' in self.headers:
+            try:
+                content_length = int(self.headers['content-length'])
+                if content_length < 0 or content_length > 10 * 1024 * 1024:  # 10MB limit
+                    raise HTTPParsingError("Invalid content length")
+            except ValueError:
+                raise HTTPParsingError("Invalid content length format")
+    
+    def get_header(self, name: str, default: str = "") -> str:
+        """Get header value with case-insensitive lookup."""
+        return self.headers.get(name.lower(), default)
+    
+    def __str__(self):
+        return f"{self.method} {self.path} {self.version}"
         
         # Parse request line (METHOD /path HTTP/1.1)
         request_line = lines[0]
@@ -182,16 +308,207 @@ class Middleware:
 
 
 class LoggingMiddleware(Middleware):
-    """Middleware that logs all requests and responses"""
+    """Production-level logging middleware with structured logging."""
+    
+    def __init__(self):
+        self.logger = get_logger("http.server")
+        self.start_times = {}
     
     def before_request(self, request: HTTPRequest) -> Optional[HTTPResponse]:
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        print(f"[{timestamp}] {request.method} {request.path}")
+        """Log request details."""
+        self.start_times[id(request)] = time.time()
+        
+        self.logger.info("HTTP request received", {
+            "method": request.method,
+            "path": request.path,
+            "remote_addr": request.remote_addr,
+            "user_agent": request.get_header("user-agent"),
+            "content_length": request.get_header("content-length")
+        })
+        
+        # Security logging
+        if request.path.count('..') > 0:
+            self.logger.warning("Path traversal attempt", {
+                "path": request.path,
+                "remote_addr": request.remote_addr
+            })
+        
         return None
     
     def after_request(self, request: HTTPRequest, response: HTTPResponse) -> HTTPResponse:
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        print(f"[{timestamp}] Response: {response.status_code}")
+        """Log response details with performance metrics."""
+        start_time = self.start_times.pop(id(request), time.time())
+        duration = time.time() - start_time
+        
+        self.logger.info("HTTP response sent", {
+            "method": request.method,
+            "path": request.path,
+            "status_code": response.status_code,
+            "duration_ms": round(duration * 1000, 2),
+            "content_length": response.headers.get("content-length", "0")
+        })
+        
+        # Log errors and warnings
+        if response.status_code >= 400:
+            level = "error" if response.status_code >= 500 else "warning"
+            getattr(self.logger, level)("HTTP error response", {
+                "method": request.method,
+                "path": request.path,
+                "status_code": response.status_code,
+                "remote_addr": request.remote_addr
+            })
+        
+        return response
+
+
+class SecurityMiddleware(Middleware):
+    """Security-focused middleware with rate limiting and security headers."""
+    
+    def __init__(self, rate_limit_requests: int = 100, rate_limit_window: int = 60):
+        self.logger = get_logger("http.security")
+        self.rate_limit_requests = rate_limit_requests
+        self.rate_limit_window = rate_limit_window
+        self.request_counts = {}  # ip -> [(timestamp, count)]
+        self.blocked_ips = set()
+    
+    def before_request(self, request: HTTPRequest) -> Optional[HTTPResponse]:
+        """Apply security checks before request processing."""
+        client_ip = request.remote_addr or "unknown"
+        
+        # Rate limiting
+        if self._is_rate_limited(client_ip):
+            self.logger.warning("Rate limit exceeded", {"client_ip": client_ip})
+            return HTTPResponse(
+                status_code=429,
+                headers={"retry-after": str(self.rate_limit_window)},
+                body="<h1>429 Too Many Requests</h1><p>Rate limit exceeded. Try again later.</p>"
+            )
+        
+        # Check blocked IPs
+        if client_ip in self.blocked_ips:
+            self.logger.warning("Blocked IP attempted access", {"client_ip": client_ip})
+            return HTTPResponse(
+                status_code=403,
+                body="<h1>403 Forbidden</h1><p>Access denied.</p>"
+            )
+        
+        # Validate request size
+        content_length = request.get_header("content-length")
+        if content_length:
+            try:
+                size = int(content_length)
+                if size > 10 * 1024 * 1024:  # 10MB limit
+                    self.logger.warning("Large request blocked", {
+                        "client_ip": client_ip,
+                        "content_length": size
+                    })
+                    return HTTPResponse(
+                        status_code=413,
+                        body="<h1>413 Request Entity Too Large</h1>"
+                    )
+            except ValueError:
+                pass
+        
+        return None
+    
+    def after_request(self, request: HTTPRequest, response: HTTPResponse) -> HTTPResponse:
+        """Add security headers to response."""
+        # Security headers
+        response.headers.update({
+            "x-frame-options": "DENY",
+            "x-content-type-options": "nosniff",
+            "x-xss-protection": "1; mode=block",
+            "strict-transport-security": "max-age=31536000; includeSubDomains",
+            "referrer-policy": "strict-origin-when-cross-origin"
+        })
+        
+        return response
+    
+    def _is_rate_limited(self, client_ip: str) -> bool:
+        """Check if client IP is rate limited."""
+        now = time.time()
+        
+        # Clean old entries
+        if client_ip in self.request_counts:
+            self.request_counts[client_ip] = [
+                (timestamp, count) for timestamp, count in self.request_counts[client_ip]
+                if now - timestamp < self.rate_limit_window
+            ]
+        
+        # Count current requests
+        current_count = sum(
+            count for timestamp, count in self.request_counts.get(client_ip, [])
+        )
+        
+        if current_count >= self.rate_limit_requests:
+            return True
+        
+        # Add current request
+        if client_ip not in self.request_counts:
+            self.request_counts[client_ip] = []
+        
+        self.request_counts[client_ip].append((now, 1))
+        return False
+
+
+class CompressionMiddleware(Middleware):
+    """Middleware that compresses responses when appropriate."""
+    
+    def __init__(self, min_size: int = 1024):
+        self.min_size = min_size
+        self.logger = get_logger("http.compression")
+    
+    def after_request(self, request: HTTPRequest, response: HTTPResponse) -> HTTPResponse:
+        """Compress response if appropriate."""
+        # Check if client accepts compression
+        accept_encoding = request.get_header("accept-encoding", "").lower()
+        if "gzip" not in accept_encoding:
+            return response
+        
+        # Check if content is worth compressing
+        if isinstance(response.body, str):
+            body_size = len(response.body.encode('utf-8'))
+        else:
+            body_size = len(response.body) if hasattr(response.body, '__len__') else 0
+        
+        if body_size < self.min_size:
+            return response
+        
+        # Check content type
+        content_type = response.headers.get("content-type", "")
+        compressible_types = [
+            "text/", "application/json", "application/javascript",
+            "application/xml", "image/svg"
+        ]
+        
+        if not any(content_type.startswith(ct) for ct in compressible_types):
+            return response
+        
+        try:
+            # Compress the body
+            if isinstance(response.body, str):
+                original_body = response.body.encode('utf-8')
+            else:
+                original_body = response.body
+            
+            compressed_body = zlib.compress(original_body, level=6)
+            
+            # Only use compressed version if it's smaller
+            if len(compressed_body) < len(original_body):
+                response.body = compressed_body
+                response.headers["content-encoding"] = "gzip"
+                response.headers["content-length"] = str(len(compressed_body))
+                
+                compression_ratio = len(compressed_body) / len(original_body)
+                self.logger.debug("Response compressed", {
+                    "original_size": len(original_body),
+                    "compressed_size": len(compressed_body),
+                    "compression_ratio": round(compression_ratio, 3)
+                })
+        
+        except Exception as e:
+            self.logger.warning("Compression failed", {"error": str(e)})
+        
         return response
 
 
@@ -366,53 +683,145 @@ class Router:
 
 
 class HTTPServer:
-    """Complete HTTP server implementation"""
+    """
+    Production-level HTTP server implementation with enhanced features.
     
-    def __init__(self, host: str = 'localhost', port: int = 8080):
-        self.host = host
-        self.port = port
-        self.socket = None
-        self.router = Router()
-        self.running = False
+    Provides comprehensive HTTP server functionality including:
+    - Production-level error handling and logging
+    - Middleware support for cross-cutting concerns
+    - Security features and rate limiting
+    - Performance monitoring and metrics
+    - Graceful shutdown handling
+    """
+    
+    def __init__(self, host: str = 'localhost', port: int = 8080, 
+                 max_connections: int = 100, request_timeout: int = 30):
+        """Initialize server with production-level configuration."""
+        try:
+            self.logger = get_logger(f"http.server.{host}:{port}")
+            
+            # Validate inputs
+            self.host = validator.validate_string(host, "host", min_length=1, max_length=255)
+            self.port = validator.validate_integer(port, "port", min_value=0, max_value=65535)
+            self.max_connections = validator.validate_integer(max_connections, "max_connections", min_value=1, max_value=10000)
+            self.request_timeout = validator.validate_integer(request_timeout, "request_timeout", min_value=1, max_value=300)
+            
+            self.socket = None
+            self.router = Router()
+            self.running = False
+            self.active_connections = 0
+            self.total_requests = 0
+            self.start_time = None
+            
+            self.logger.info("HTTP server initialized", {
+                "host": self.host,
+                "port": self.port,
+                "max_connections": self.max_connections,
+                "request_timeout": self.request_timeout
+            })
+            
+        except Exception as e:
+            if hasattr(self, 'logger'):
+                self.logger.error("Failed to initialize HTTP server", {"error": str(e)}, e)
+            raise HTTPServerError(f"Failed to initialize HTTP server: {e}")
+    
+    def add_default_middleware(self):
+        """Add default production middleware."""
+        self.router.add_middleware(SecurityMiddleware(rate_limit_requests=100, rate_limit_window=60))
+        self.router.add_middleware(LoggingMiddleware())
+        self.router.add_middleware(CORSMiddleware())
+        self.router.add_middleware(CompressionMiddleware())
     
     def start(self):
-        """Start the HTTP server"""
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        
+        """Start the HTTP server with comprehensive error handling."""
         try:
-            self.socket.bind((self.host, self.port))
-            self.socket.listen(5)
-            self.running = True
-            
-            print(f"MyHTTPServer starting on {self.host}:{self.port}")
-            print(f"Server URL: http://{self.host}:{self.port}")
-            print("Press Ctrl+C to stop the server")
-            
-            while self.running:
-                try:
-                    client_socket, address = self.socket.accept()
-                    print(f"Connection from {address}")
-                    
-                    # Handle each client in a separate thread
-                    client_thread = threading.Thread(
-                        target=self.handle_client,
-                        args=(client_socket,),
-                        daemon=True
-                    )
-                    client_thread.start()
-                    
-                except socket.error:
-                    if self.running:  # Only print error if we're still supposed to be running
-                        print("Socket error occurred")
-                    break
-                    
-        except KeyboardInterrupt:
-            print("\n\nShutting down server...")
+            with self.logger.operation_context("start_server"):
+                self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                self.socket.settimeout(1.0)  # Allow periodic checks for shutdown
+                
+                self.socket.bind((self.host, self.port))
+                self.socket.listen(self.max_connections)
+                self.running = True
+                self.start_time = time.time()
+                
+                # Add default middleware if none present
+                if not self.router.middleware:
+                    self.add_default_middleware()
+                
+                self.logger.info("HTTP server started successfully", {
+                    "host": self.host,
+                    "port": self.port,
+                    "pid": os.getpid()
+                })
+                
+                print(f"MyHTTPServer starting on {self.host}:{self.port}")
+                print(f"Server URL: http://{self.host}:{self.port}")
+                print("Press Ctrl+C to stop the server")
+                
+                self._accept_loop()
+                
         except Exception as e:
-            print(f"Server error: {e}")
+            self.logger.error("Failed to start HTTP server", {"error": str(e)}, e)
+            raise HTTPServerError(f"Failed to start server: {e}")
         finally:
             self.stop()
+    
+    def _accept_loop(self):
+        """Main server accept loop with proper error handling."""
+        while self.running:
+            try:
+                client_socket, address = self.socket.accept()
+                
+                # Check connection limits
+                if self.active_connections >= self.max_connections:
+                    self.logger.warning("Connection limit exceeded", {
+                        "active_connections": self.active_connections,
+                        "max_connections": self.max_connections,
+                        "client_address": address[0]
+                    })
+                    client_socket.close()
+                    continue
+                
+                self.active_connections += 1
+                self.logger.debug("Client connection accepted", {
+                    "client_address": address[0],
+                    "active_connections": self.active_connections
+                })
+                
+                # Handle each client in a separate thread
+                client_thread = threading.Thread(
+                    target=self._handle_client_with_cleanup,
+                    args=(client_socket, address),
+                    daemon=True
+                )
+                client_thread.start()
+                
+            except socket.timeout:
+                # Timeout allows us to check if we should still be running
+                continue
+            except socket.error as e:
+                if self.running:
+                    self.logger.error("Socket error in accept loop", {"error": str(e)}, e)
+                break
+            except KeyboardInterrupt:
+                self.logger.info("Received shutdown signal")
+                break
+            except Exception as e:
+                self.logger.error("Unexpected error in accept loop", {"error": str(e)}, e)
+                if not self.running:
+                    break
+    
+    def _handle_client_with_cleanup(self, client_socket, address):
+        """Handle client request with proper cleanup."""
+        try:
+            self._handle_client(client_socket, address)
+        finally:
+            self.active_connections -= 1
+            try:
+                client_socket.close()
+            except:
+                pass
     
     def stop(self):
         """Stop the HTTP server"""
@@ -453,6 +862,27 @@ class HTTPServer:
                 client_socket.close()
             except:
                 pass
+
+    def stop(self):
+        """Stop the HTTP server gracefully."""
+        if not self.running:
+            return
+            
+        self.running = False
+        if self.socket:
+            self.socket.close()
+            
+        print("\nServer stopped gracefully.")
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get server statistics."""
+        return {
+            "host": self.host,
+            "port": self.port,
+            "running": self.running,
+            "total_requests": getattr(self, 'total_requests', 0),
+            "active_connections": getattr(self, 'active_connections', 0)
+        }
 
 
 def create_static_files():
