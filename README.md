@@ -58,6 +58,27 @@ This repository follows the principle of learning by building. Instead of just r
 - **[Build Your Own Augmented Reality](./augmented-reality/)** - AR development tutorials
 - **[Build Your Own Frontend Framework](./frontend/)** - React/Vue-like framework implementation
 
+### 📚 Additional Projects & Resources
+
+For more specialized tutorials and language-specific implementations, explore these comprehensive resources:
+
+#### Systems & Infrastructure
+- **[Build Your Own Docker](./docker/)** - Container runtime and virtualization
+- **[Build Your Own Network Stack](./network/)** - TCP/IP implementation from scratch
+- **[Build Your Own BitTorrent Client](./bittorrent/)** - P2P file sharing protocol
+
+#### Specialized Engines
+- **[Build Your Own Regex Engine](./regex/)** - Pattern matching and finite automata
+- **[Build Your Own Search Engine](./search-engine/)** - Information retrieval and indexing
+- **[Build Your Own Template Engine](./template-engine/)** - Text templating systems
+- **[Build Your Own Voxel Engine](./voxel-engine/)** - Minecraft-style world generation
+
+#### Machine Learning & Vision
+- **[Build Your Own Visual Recognition System](./visual-recognition/)** - Computer vision and image processing
+
+#### Comprehensive Tutorial Collections
+Each category contains extensive tutorials covering multiple programming languages including C, C++, Python, JavaScript, Go, Rust, Java, C#, and many more. From beginner-friendly introductions to advanced implementations, these tutorials provide complete learning paths for mastering each technology from first principles.
+
 ## 🚀 Getting Started
 
 1. **Choose a Project**: Pick any project that interests you from the list above
